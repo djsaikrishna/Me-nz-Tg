@@ -1,11 +1,13 @@
-# Copyright (c) 2023 Itz-fork
+# Copyright (c) 2021 - Present Itz-fork
 # Author: https://github.com/Itz-fork
 # Project: https://github.com/Itz-fork/Mega.nz-Bot
 # Description: Custom pyrogram client useful methods
 
 import os
+import json
 import asyncio
 import logging
+import requests
 import functools
 
 from typing import Callable
@@ -16,9 +18,10 @@ from pyrogram import Client, errors
 from pyrogram.handlers import MessageHandler
 from pyrogram.types import Message, CallbackQuery
 
-from .database import CypherDB
-from .files import send_as_guessed, fs_cleanup, splitit, listfiles
 
+from .database import CypherDB
+from .sysfncs import run_on_shell
+from .files import send_as_guessed, fs_cleanup, splitit, listfiles
 
 _emsg = """
 ##### Mega.nz-Bot Error Handler #####
@@ -37,7 +40,7 @@ class MeganzClient(Client):
     Custom pyrogram client for Mega.nz-Bot
     """
 
-    version = "cypher-1.0"
+    version = "1.0.1"
     dl_loc = None
     tmp_loc = None
     database = CypherDB() if os.getenv("MONGO_URI") else None
@@ -89,11 +92,13 @@ class MeganzClient(Client):
             else set(map(int, os.getenv("AUTH_USERS").split()))
             if not _auths.startswith("*")
             else {"*"}
-            if len(_auths.split("|")) > 2
+            if len(_auths) < 2
             else set(map(int, _auths.split("|")[1].split())).union({"*"})
         )
-        self.log_chat = int(os.getenv("LOG_CHAT")) if os.getenv("LOG_CHAT") else None
+        log_chat = os.getenv("LOG_CHAT")
+        self.log_chat = int(log_chat) if log_chat and log_chat != "-1001234567890" else None
         self.use_logs = {"dl_from", "up_to"}
+        self.req_db_fn = {"mega_logger", "mega_logoutter", "set_user_proxy"}
         self.is_public = True if self.database else False
 
         if self.is_public:
@@ -114,7 +119,28 @@ class MeganzClient(Client):
                 logging.warning("Unable to find encryption key")
                 exit(1)
         else:
-            print("     Warning: Mongodb url not found")
+            logging.warning("Warning: Mongodb url not found")
+
+        # Check for updates
+        print("> Checking for updates")
+        try:
+            remote_updates = requests.get(
+                "https://raw.githubusercontent.com/Itz-fork/Mega.nz-Bot/main/updates.json"
+            ).json()
+            
+            with open("updates.json", "r") as f:
+                local_updates = json.load(f)
+                if remote_updates["commit"] != local_updates["commit"]:
+                    print("    |> New update found, updating...")
+                    run_on_shell("git update-index --assume-unchanged .env mega.ini")
+                    run_on_shell("git pull")
+                    self.version = remote_updates["version"]
+                    self.send_message(
+                        self.log_chat,
+                        f"**#UPDATE** \n\n**Version:** `{self.version}` \n**Date:** `{remote_updates['date']}` \n**Changes:** `{remote_updates['message']}`",
+                    )
+        except:
+            logging.warning("Auto-update failed!")
 
         # other stuff
         print("> Setting up additional functions")
@@ -122,6 +148,7 @@ class MeganzClient(Client):
         self.mega_running = {}
         self.ddl_running = {}
         self.add_handler(MessageHandler(self.use_listner))
+
 
     def run_checks(self, func) -> Callable:
         """
@@ -131,15 +158,12 @@ class MeganzClient(Client):
         async def cy_run(client: Client, msg: Message | CallbackQuery):
             can_use = False
             # use message of the query if it's a callback query
-            uid = (
-                msg.message.from_user.id
-                if isinstance(msg, CallbackQuery)
-                else msg.from_user.id
-            )
+            uid = msg.from_user.id
 
             try:
                 # no need to use "Cypher.cyeor" as `use_logs` are Message handlers
-                if func.__name__ in self.use_logs:
+                _func_name = func.__name__
+                if _func_name in self.use_logs:
                     # return if user has already started a process
                     if uid in self.mega_running or uid in self.ddl_running:
                         return await msg.reply(
@@ -150,6 +174,14 @@ class MeganzClient(Client):
                         _frwded = await msg.forward(chat_id=self.log_chat)
                         await _frwded.reply(
                             f"**#UPLOAD_LOG** \n\n**From:** `{uid}` \n**Get history:** `/info {uid}`"
+                        )
+                
+                if _func_name.startswith("admin") or _func_name in self.req_db_fn:
+                    if not self.database:
+                        return await self.cyeor(
+                            msg,
+                            "`Please set up database to use this feature!`",
+                            True,
                         )
 
                 # Check auth users
@@ -185,7 +217,7 @@ class MeganzClient(Client):
                 pass
             except FileExistsError:
                 await self.cyeor(
-                    msg, "`File already exists in the server. Try again 😬`"
+                    msg, "`File already exists in the server. Try again after I wipe your data 😬`"
                 )
                 await self.full_cleanup(self.dl_loc, uid)
             # Other exceptions
@@ -280,7 +312,7 @@ class MeganzClient(Client):
                         Trying to split the files 🔪...
                         """,
                     )
-                    splout = f"{self.tmp_loc}/splitted"
+                    splout = f"{self.tmp_loc}/{chat_id}/splitted"
                     await splitit(file, splout)
                     for file in listfiles(splout):
                         await send_as_guessed(self, file, chat_id, msg_id, **kwargs)

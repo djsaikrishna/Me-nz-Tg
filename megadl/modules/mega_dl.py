@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Itz-fork
+# Copyright (c) 2021 - Present Itz-fork
 # Author: https://github.com/Itz-fork
 # Project: https://github.com/Itz-fork/Mega.nz-Bot
 # Description: Handle mega.nz download function
@@ -97,7 +97,8 @@ async def dl_from_cb(client: CypherClient, query: CallbackQuery):
 
     await query.edit_message_text("`Successfully downloaded the content 🥳`")
     # update download count
-    await client.database.plus_fl_count(qusr, downloads=len(f_list))
+    if client.database:
+        await client.database.plus_fl_count(qusr, downloads=len(f_list))
     # Send file(s) to the user
     await resp.edit("`Trying to upload now 📤...`")
     await client.send_files(

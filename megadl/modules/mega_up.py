@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Itz-fork
+# Copyright (c) 2021 - Present Itz-fork
 # Author: https://github.com/Itz-fork
 # Project: https://github.com/Itz-fork/Mega.nz-Bot
 # Description: Handle mega.nz upload function
@@ -73,7 +73,8 @@ async def to_up_cb(client: CypherClient, query: CallbackQuery):
     # Status msg
     await query.edit_message_text("`Trying to download the file 📥`", reply_markup=None)
     # update upload count
-    await client.database.plus_fl_count(qusr, uploads=1)
+    if client.database:
+        await client.database.plus_fl_count(qusr, uploads=1)
 
     # Download files accordingly
     dl_path = None

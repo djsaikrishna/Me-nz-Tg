@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Itz-fork
+# Copyright (c) 2021 - Present Itz-fork
 # Author: https://github.com/Itz-fork
 # Project: https://github.com/Itz-fork/Mega.nz-Bot
 # Description: Bonus functions such as file/folder info, proxy setting and account status
@@ -28,8 +28,8 @@ async def info_from_cb(client: CypherClient, query: CallbackQuery):
             f"""
 》 **File Details**
 
-**📛 Name:** `{retrieved[0]}`
-**🗂 Size:** `{retrieved[1]}`
+**📛 Name:** `{retrieved[1]}`
+**🗂 Size:** `{retrieved[0]}`
 **📎 URL:** `{url}`
 """,
             reply_markup=None,

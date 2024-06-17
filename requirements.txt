@@ -1,9 +1,10 @@
-pyrogram
+https://github.com/KurimuzonAkuma/pyrogram/archive/v2.1.21.zip
 Tgcrypto
+requests
 filesplit
 filetype
-python-dotenv
 aiofiles
+python-dotenv
 aiohttp[speedups]
 pymongo
 dnspython
